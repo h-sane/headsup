@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Heads Up</title>
+    
+    <!-- 1. Tailwind CSS for rapid and beautiful UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Google Fonts (Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <!-- 3. Phosphor Icons (for timer) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- 4. Tone.js for Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    
+    <style>
+        /* Base styles */
+        body, html {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
+            -webkit-user-select: none; /* Safari */
+            -ms-user-select: none; /* IE 10+ */
+            user-select: none; /* Standard syntax */
+            -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Prevent flashing on tap */
+        button, div, h1 {
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+        }
+
+        /* Custom gradient text */
+        .gradient-text {
+            background: linear-gradient(to right, #67e8f9, #0ea5e9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* Game-over score pulse */
+        @keyframes pulse-score {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: .9;
+                transform: scale(1.05);
+            }
+        }
+        .pulse-score {
+            animation: pulse-score 2.5s ease-in-out infinite;
+        }
+        
+        /* Custom styles for select dropdowns */
+        .custom-select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url('data:image/svg+xml;utf8,<svg fill="%2367e8f9" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.5em 1.5em;
+        }
+        
+        /* Style for the options in the dropdown */
+        select option {
+            background: #1f2937; /* Dark background */
+            color: white;
+        }
+        
+        /* --- REWRITTEN MODAL STYLES (NO @apply) --- */
+        #word-modal {
+            position: fixed;
+            top: 0; right: 0; bottom: 0; left: 0;
+            z-index: 50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            display: none; /* Hidden by default */
+        }
+        #word-modal.is-open {
+            display: flex; /* Show when open */
+        }
+        #modal-backdrop {
+            position: fixed;
+            top: 0; right: 0; bottom: 0; left: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            transition: opacity 300ms ease-in-out;
+            opacity: 0; /* Hidden by default */
+        }
+        #word-modal.is-open #modal-backdrop {
+            opacity: 1; /* Fade in */
+        }
+        #modal-content {
+            background-color: #1f2937; /* bg-gray-800 */
+            color: white;
+            border-radius: 1rem; /* rounded-2xl */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); /* shadow-2xl */
+            z-index: 10;
+            width: 100%;
+            max-width: 28rem; /* max-w-md */
+            transition: all 300ms ease-in-out;
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        #word-modal.is-open #modal-content {
+            opacity: 1;
+            transform: scale(1.0);
+        }
+        #modal-list {
+            padding: 1.5rem; /* p-6 */
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .results-list-item {
+            font-size: 1.125rem; /* text-lg */
+            font-weight: 500; /* font-medium */
+            padding: 0.5rem; /* p-2 */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* border-b border-white/10 */
+        }
+        
+        .hidden {
+            display: none;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-900 text-white h-[100svh] w-screen overflow-hidden">
+
+    <!-- 
+      GLOBAL APP CONTAINER 
+      We use CSS transitions to "switch screens"
+    -->
+    <div id="app-container" class="relative h-full w-full">
+
+        <!-- ====================================================== -->
+        <!-- SCREEN 1: SETUP SCREEN                                 -->
+        <!-- ====================================================== -->
+        <div id="setup-screen" class="flex flex-col items-center justify-center h-full p-6 bg-gradient-to-br from-indigo-900 to-gray-900">
+            <h1 class="text-5xl md:text-7xl font-black text-center mb-10 text-cyan-300">Heads Up</h1>
+            
+            <div class="w-full max-w-md space-y-6">
+                <!-- Category Select -->
+                <div>
+                    <label for="category" class="block text-sm font-medium text-cyan-200 mb-2">Category</label>
+                    <select id="category" class="custom-select block w-full rounded-xl border-0 bg-white/10 p-4 text-white text-lg ring-1 ring-inset ring-white/20 focus:ring-2 focus:ring-cyan-300">
+                        <option>Movies</option>
+                        <option>Celebrities</option>
+                        <option>Animals</option>
+                        <option>Random Words</option>
+                        <option>Science</option>
+                        <option>History</option>
+                    </select>
+                </div>
+
+                <!-- Difficulty Select -->
+                <div>
+                    <label for="difficulty" class="block text-sm font-medium text-cyan-200 mb-2">Difficulty</label>
+                    <select id="difficulty" class="custom-select block w-full rounded-xl border-0 bg-white/10 p-4 text-white text-lg ring-1 ring-inset ring-white/20 focus:ring-2 focus:ring-cyan-300">
+                        <option>Easy</option>
+                        <option>Medium</option>
+                        <option>Hard</option>
+                    </select>
+                </div>
+                
+                <!-- Time Select -->
+                <div>
+                    <label for="time" class="block text-sm font-medium text-cyan-200 mb-2">Time per Round</label>
+                    <select id="time" class="custom-select block w-full rounded-xl border-0 bg-white/10 p-4 text-white text-lg ring-1 ring-inset ring-white/20 focus:ring-2 focus:ring-cyan-300">
+                        <option value="60">1 Minute</option>
+                        <option value="90">1 Minute 30 Seconds</option>
+                        <option value="120">2 Minutes</option>
+                        <option value="180">3 Minutes</option>
+                        <option value="300">5 Minutes</option>
+                    </select>
+                </div>
+
+                <!-- Start Button / Auth Button -->
+                <button id="start-button" class="w-full rounded-xl bg-cyan-500 p-4 text-2xl font-black text-indigo-900 shadow-lg transition-transform hover:scale-105 active:scale-95" disabled>
+                    LOADING...
+                </button>
+            </div>
+            
+            <!-- Loading Indicator -->
+            <div id="loading-indicator" class="hidden absolute inset-0 bg-gray-900/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-4 z-50">
+                <div class="h-12 w-12 animate-spin rounded-full border-4 border-white/20 border-t-cyan-300"></div>
+                <p id="loading-status" class="text-cyan-200 text-lg">Warming up the AI...</p>
+                <p class="text-sm text-gray-400 max-w-xs text-center">This may take a moment on first load.</p>
+            </div>
+        </div>
+        
+        <!-- ====================================================== -->
+        <!-- SCREEN 2: COUNTDOWN SCREEN                             -->
+        <!-- ====================================================== -->
+        <div id="countdown-screen" class="hidden absolute inset-0 bg-indigo-900 flex flex-col items-center justify-center p-6 text-center z-20">
+            <h2 class="text-3xl text-cyan-300 mb-4">Get Ready!</h2>
+            <div id="countdown-timer" class="text-9xl font-black text-white" style="font-size: 20vw;">3</div>
+            <p class="text-xl text-gray-300 mt-6">Place the phone on your forehead!</p>
+        </div>
+
+
+        <!-- ====================================================== -->
+        <!-- SCREEN 3: GAME SCREEN                                  -->
+        <!-- ====================================================== -->
+        <div id="game-screen" class="hidden absolute inset-0 bg-gray-900 z-10">
+            <!-- Game UI Layout (Split Screen) -->
+            <div class="flex h-full w-full">
+                <!-- Left Side (Skip) -->
+                <div id="skip-area" class="flex-1 bg-red-800/80 flex items-center justify-center">
+                    <span class="text-4xl font-black text-white opacity-50 -rotate-90">SKIP</span>
+                </div>
+                <!-- Right Side (Correct) -->
+                <div id="correct-area" class="flex-1 bg-green-800/80 flex items-center justify-center">
+                    <span class="text-4xl font-black text-white opacity-50 rotate-90">CORRECT</span>
+                </div>
+            </div>
+            
+            <!-- Center UI (Word, Timer) - Overlays the split screen -->
+            <div class="absolute inset-0 flex flex-col items-center justify-between p-4 pointer-events-none">
+                <!-- Top Bar (Timer) -->
+                <div id="game-timer-display" class="flex items-center space-x-2 rounded-full bg-black/30 px-4 py-2 text-3xl font-bold text-white">
+                    <i class="ph-fill ph-timer text-cyan-300"></i>
+                    <span id="game-timer-value">01:00</span>
+                </div>
+                
+                <!-- Word Display (Centered) -->
+                <div id="word-container" class="absolute inset-0 flex items-center justify-center pointer-events-none p-10" style="top: 10vh;"> <!-- Positioned slightly down from top bar -->
+                    <h1 id="word-display" class="text-6xl md:text-9xl font-black text-white text-center break-words">
+                    </h1>
+                </div>
+            </div>
+            
+            <!-- Feedback Overlay (flashes green/red) -->
+            <div id="feedback-overlay" class="absolute inset-0 opacity-0 transition-opacity duration-300 pointer-events-none"></div>
+        </div>
+        
+        <!-- ====================================================== -->
+        <!-- SCREEN 4: RESULTS SCREEN (UPGRADED)                    -->
+        <!-- ====================================================== -->
+        <div id="results-screen" class="hidden absolute inset-0 bg-gradient-to-br from-indigo-900 to-gray-900 flex flex-col items-center justify-between p-6 z-30">
+            <div class="w-full max-w-md text-center space-y-6">
+                <h2 class="text-5xl font-bold text-center text-cyan-300">Time's Up!</h2>
+                
+                <!-- New Score Display -->
+                <div class="text-center">
+                    <p class="text-xl text-gray-300">Final Score</p>
+                    <div id="final-score" class="text-9xl font-black text-white my-2 pulse-score">0</div>
+                </div>
+                
+                <!-- New Correct/Skipped Lists -->
+                <div class="w-full max-w-md space-y-4">
+                <div class="bg-black/20 rounded-xl p-4 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg font-bold text-green-400">Correct (<span id="correct-count">0</span>)</h3>
+                        <p class="text-sm text-gray-400">(+2 points each)</p>
+                    </div>
+                    <button id="view-correct-btn" class="rounded-lg bg-green-500/80 px-4 py-2 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95">VIEW</button>
+                </div>
+                <!-- Skipped -->
+                <div class="bg-black/20 rounded-xl p-4 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg font-bold text-red-400">Skipped (<span id="skipped-count">0</span>)</h3>
+                        <p class="text-sm text-gray-400">(-1 point each)</p>
+                    </div>
+                    <button id="view-skipped-btn" class="rounded-lg bg-red-500/80 px-4 py-2 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95">VIEW</button>
+                </div>
+            </div>
+            </div>
+            
+            <div class="flex space-x-4 w-full max-w-md">
+                <button id="play-again-button" class="flex-1 rounded-xl bg-cyan-500 p-4 text-xl font-black text-indigo-900 shadow-lg transition-transform hover:scale-105 active:scale-95">
+                    PLAY AGAIN
+                </button>
+                <button id="change-settings-button" class="flex-1 rounded-xl bg-white/10 p-4 text-xl font-black text-cyan-300 ring-1 ring-inset ring-white/20 transition-transform hover:scale-105 active:scale-95">
+                    MAIN MENU
+                </button>
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- ====================================================== -->
+    <!-- WORD LIST MODAL (NEW)                                  -->
+    <!-- ====================================================== -->
+    <div id="word-modal" class=""> <!-- REMOVED modal-hidden -->
+        <div id="modal-backdrop" class=""></div> <!-- REMOVED opacity-0 -->
+        <div id="modal-content" class=""> <!-- REMOVED opacity-0 scale-95 -->
+            <div class="flex justify-between items-center p-4 border-b border-gray-700">
+                <h2 id="modal-title" class="text-2xl font-bold">Words</h2>
+                <button id="modal-close-btn" class="text-gray-400 hover:text-white text-3xl">&times;</button>
+            </div>
+            <div id="modal-list">
+                <!-- Words will be injected here by JS -->
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 
+      ==============================================================
+      JAVASCRIPT LOGIC
+      ==============================================================
+    -->
+    <script type="module">
+        // -------------------------------------------------
+        // Firebase SDK Imports
+        // -------------------------------------------------
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            GoogleAuthProvider,
+            signInWithPopup,
+            onAuthStateChanged,
+            // We are not using anonymous or custom tokens for deployment
+            // signInAnonymously, 
+            // signInWithCustomToken, 
+            setPersistence,
+            inMemoryPersistence, // Use this for preview if needed, but not for prod
+            browserLocalPersistence // Use this for production
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            getDoc, 
+            setDoc, 
+            setLogLevel,
+            updateDoc,
+            arrayUnion,
+            runTransaction
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // -------------------------------------------------
+        // DOM Element References
+        // -------------------------------------------------
+        const $setupScreen = document.getElementById('setup-screen');
+        const $countdownScreen = document.getElementById('countdown-screen');
+        const $gameScreen = document.getElementById('game-screen');
+        const $resultsScreen = document.getElementById('results-screen');
+        
+        const $startButton = document.getElementById('start-button');
+        const $playAgainButton = document.getElementById('play-again-button');
+        const $changeSettingsButton = document.getElementById('change-settings-button');
+        
+        const $categorySelect = document.getElementById('category');
+        const $difficultySelect = document.getElementById('difficulty');
+        const $timeSelect = document.getElementById('time');
+        
+        const $loadingIndicator = document.getElementById('loading-indicator');
+        const $loadingStatus = document.getElementById('loading-status');
+        
+        const $countdownTimer = document.getElementById('countdown-timer');
+        const $gameTimerValue = document.getElementById('game-timer-value');
+        const $wordDisplay = document.getElementById('word-display');
+        const $wordContainer = document.getElementById('word-container');
+        
+        const $skipArea = document.getElementById('skip-area');
+        const $correctArea = document.getElementById('correct-area');
+        const $feedbackOverlay = document.getElementById('feedback-overlay');
+        
+        // --- UPGRADED Results Screen Elements ---
+        const $finalScore = document.getElementById('final-score');
+        const $correctCount = document.getElementById('correct-count');
+        const $skippedCount = document.getElementById('skipped-count');
+        const $viewCorrectBtn = document.getElementById('view-correct-btn');
+        const $viewSkippedBtn = document.getElementById('view-skipped-btn');
+
+        // --- NEW Modal Elements ---
+        const $wordModal = document.getElementById('word-modal');
+        const $modalBackdrop = document.getElementById('modal-backdrop');
+        const $modalContent = document.getElementById('modal-content');
+        const $modalTitle = document.getElementById('modal-title');
+        const $modalList = document.getElementById('modal-list');
+        const $modalCloseBtn = document.getElementById('modal-close-btn');
+
+        // -------------------------------------------------
+        // Firebase & App Config
+        // -------------------------------------------------
+        
+        // --- DEPLOYMENT CONFIG ---
+        // 1. CHOOSE A PERMANENT APP ID (cannot be changed later)
+        const appId = "heads-up-v1"; // This is our app's internal ID
+
+        // 2. PASTE YOUR FIREBASE CONFIG OBJECT HERE
+        const firebaseConfig = {
+            apiKey: "AIzaSyDDseQLasErIFRwzkulqIF4TRe7Ox_IXmY",
+            authDomain: "headsup-cab4e.firebaseapp.com",
+            projectId: "headsup-cab4e",
+            storageBucket: "headsup-cab4e.firebasestorage.app",
+            messagingSenderId: "409660603005",
+            appId: "1:409660603005:web:d4915654188dfbd9ee8f14",
+            measurementId: "G-VZWVWER21S"
+        };
+        // --- END DEPLOYMENT CONFIG ---
+
+        // Initialize Firebase
+        let app, auth, db, googleProvider;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            googleProvider = new GoogleAuthProvider(); // For Google Sign-In
+            setLogLevel('Debug'); // Enable detailed Firestore logs
+            console.log("Firebase Initialized Successfully.");
+        } catch (e) {
+            console.error("Firebase initialization failed:", e);
+            $loadingStatus.textContent = "Error: Config Failed.";
+        }
+        
+        // -------------------------------------------------
+        // Sound Effect State
+        // -------------------------------------------------
+        let audioReady = false;
+        let synth, beepSynth, tickSynth;
+        
+        // -------------------------------------------------
+        // Game State Variables
+        // -------------------------------------------------
+        let userId = null; // Our persistent user ID
+        
+        let currentWordDeck = [];   // The array of words for the current round
+        let correctWords = [];      // Words guessed correctly this round
+        let skippedWords = [];      // Words skipped this round
+        
+        let gameTimerInterval = null;
+        let countdownTimerInterval = null;
+        let timeRemaining = 60;
+        let totalScore = 0; // --- UPGRADED: Renamed from 'score'
+        
+        let currentSettings = {
+            category: 'Movies',
+            difficulty: 'Easy',
+            time: 60
+        };
+        
+        // --- UPGRADED: Caching Config ---
+        const REFRESH_BATCH_COUNT = 20; // How many API calls to make (20 * 100 = 2000 words)
+
+        // -------------------------------------------------
+        // Core Game Logic
+        // -------------------------------------------------
+        
+        /**
+         * --- NEW: Initialize Tone.js audio components ---
+         */
+        function initAudio() {
+            if (audioReady || !window.Tone) return;
+            try {
+                // Define synths
+                synth = new Tone.Synth().toDestination();
+                beepSynth = new Tone.MembraneSynth().toDestination();
+                tickSynth = new Tone.Synth({
+                    oscillator: { type: 'triangle' },
+                    envelope: { attack: 0.005, decay: 0.1, sustain: 0.01, release: 0.1 }
+                }).toDestination();
+                
+                audioReady = true;
+                console.log("Audio context started.");
+            } catch (e) {
+                console.error("Failed to initialize Tone.js:", e);
+            }
+        }
+
+        /**
+         * --- NEW: Play a sound effect ---
+         */
+        function playSound(sound) {
+            if (!audioReady) return; // Don't play if audio isn't on
+
+            const now = Tone.now();
+            try {
+                switch(sound) {
+                    case 'countdownBeep':
+                        beepSynth.triggerAttackRelease("C2", "8n", now);
+                        break;
+                    case 'countdownGo':
+                        beepSynth.triggerAttackRelease("G2", "4n", now);
+                        break;
+                    case 'correct':
+                        synth.triggerAttackRelease("E5", "16n", now);
+                        break;
+                    case 'skip':
+                        tickSynth.triggerAttackRelease("C3", "16n", now);
+                        break;
+                    case 'timerTick':
+                        tickSynth.triggerAttackRelease("C6", "16n", now);
+                        break;
+                    case 'endGame':
+                        synth.triggerAttackRelease("C4", "8n", now);
+                        synth.triggerAttackRelease("G4", "8n", now + 0.2);
+                        synth.triggerAttackRelease("C5", "4n", now + 0.4);
+                        break;
+                }
+            } catch (e) {
+                console.error("Tone.js playSound error:", e);
+            }
+        }
+
+        /**
+         * Main entry point. Authenticates the user and sets up listeners.
+         */
+        async function main() {
+            if (!auth) {
+                console.error("Authentication service is not available.");
+                $loadingStatus.textContent = "Error: Auth Failed.";
+                $loadingIndicator.classList.remove('hidden');
+                return;
+            }
+
+            // Set persistence to local so they stay logged in
+            await setPersistence(auth, browserLocalPersistence);
+
+            // Listen for auth state changes
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    console.log("User is authenticated. UID:", userId);
+                    // User is signed in, show the start button
+                    $startButton.disabled = false;
+                    $startButton.textContent = "START GAME";
+                } else {
+                    userId = null;
+                    console.log("User is not authenticated. Showing sign-in button.");
+                    // User is not signed in, show the sign-in button
+                    $startButton.disabled = false;
+                    $startButton.textContent = "SIGN IN WITH GOOGLE";
+                }
+            });
+        }
+        
+        /**
+         * --- NEW: Google Sign-In Logic ---
+         */
+        async function signInWithGoogle() {
+            try {
+                await signInWithPopup(auth, googleProvider);
+                // The onAuthStateChanged listener will handle the UI update
+            } catch (error) {
+                console.error("Google Sign-In failed:", error);
+                alert("Sign-in failed. Please try again.");
+            }
+        }
+        
+        /**
+         * Switches the visible screen
+         * @param {string} screenId ('setup', 'countdown', 'game', 'results')
+         */
+        function switchScreen(screenId) {
+            // Hide all screens
+            $setupScreen.classList.add('hidden');
+            $countdownScreen.classList.add('hidden');
+            $gameScreen.classList.add('hidden');
+            $resultsScreen.classList.add('hidden');
+            
+            // Show the target screen
+            const targetScreen = document.getElementById(`${screenId}-screen`);
+            if (targetScreen) {
+                targetScreen.classList.remove('hidden');
+            } else {
+                console.error(`Screen ID "${screenId}" not found.`);
+            }
+        }
+        
+        /**
+         * Fetches word deck, then starts the pre-game countdown
+         */
+        async function handleStartGame() {
+            // --- NEW: Check if user is signed in ---
+            if (!userId) {
+                await signInWithGoogle();
+                return; // Wait for user to sign in
+            }
+            
+            // 1. --- NEW: Initialize Audio on user gesture ---
+            if (!audioReady && window.Tone) {
+                await Tone.start();
+                initAudio();
+            }
+
+            // 2. Show loading indicator
+            $loadingIndicator.classList.remove('hidden');
+            $loadingStatus.textContent = "Building your deck... 📚";
+            
+            // 3. Store current settings
+            currentSettings.category = $categorySelect.value;
+            currentSettings.difficulty = $difficultySelect.value;
+            currentSettings.time = parseInt($timeSelect.value, 10);
+            timeRemaining = currentSettings.time;
+            
+            try {
+                // 4. --- UPGRADED: Fetch and prepare the word deck ---
+                const deckId = `${currentSettings.category}_${currentSettings.difficulty}`.toLowerCase();
+                const wordDeck = await getWordDeck(deckId);
+                
+                if (!wordDeck || wordDeck.length === 0) {
+                     throw new Error("Deck is empty, and AI failed to populate it.");
+                }
+                
+                // 5. Reset game state
+                currentWordDeck = [...wordDeck].sort(() => 0.5 - Math.random()); // Shuffle the deck
+                correctWords = [];
+                skippedWords = [];
+                totalScore = 0;
+
+                console.log(`Game starting with ${currentWordDeck.length} words.`);
+                
+                // 6. Hide loading and start countdown
+                $loadingIndicator.classList.add('hidden');
+                startCountdown();
+                
+            } catch (error) {
+                console.error("Error starting game:", error);
+                $loadingIndicator.classList.add('hidden');
+                alert(`Error: ${error.message}. Please try again.`);
+            }
+        }
+        
+        /**
+         * Shows the 3...2...1... countdown, then starts the game
+         */
+        function startCountdown() {
+            switchScreen('countdown');
+            let count = 3;
+            $countdownTimer.textContent = count;
+            playSound('countdownBeep'); // <-- Play sound
+            
+            countdownTimerInterval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    $countdownTimer.textContent = count;
+                    playSound('countdownBeep'); // <-- Play sound
+                } else {
+                    clearInterval(countdownTimerInterval);
+                    playSound('countdownGo'); // <-- Play sound
+                    startGame();
+                }
+            }, 1000);
+        }
+        
+        /**
+         * Starts the main game loop
+         */
+        function startGame() {
+            switchScreen('game');
+            updateGameTimerDisplay();
+            nextWord(); // Show the first word
+            
+            // Start the main game timer
+            gameTimerInterval = setInterval(() => {
+                timeRemaining--;
+                updateGameTimerDisplay();
+                
+                if (timeRemaining <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+        
+        /**
+         * --- UPGRADED: Ends the game and shows the results screen ---
+         */
+        function endGame() {
+            clearInterval(gameTimerInterval);
+            switchScreen('results');
+            playSound('endGame'); // <-- Play sound
+            
+            // Calculate score
+            const correctScore = correctWords.length * 2;
+            const skippedPenalty = skippedWords.length * 1;
+            totalScore = correctScore - skippedPenalty;
+            
+            // Display score and counts
+            $finalScore.textContent = totalScore;
+            $correctCount.textContent = correctWords.length;
+            $skippedCount.textContent = skippedWords.length;
+        }
+        
+        /**
+         * --- UPGRADED: Fetches the next word and adjusts font size ---
+         */
+        function nextWord() {
+            if (currentWordDeck.length > 0) {
+                const word = currentWordDeck.pop(); // Get next word from shuffled deck
+                $wordDisplay.textContent = word;
+                adjustWordFontSize(); // Dynamically adjust font size
+            } else {
+                // No more words in the deck, even if time is left
+                $wordDisplay.textContent = "DECK EMPTY!";
+                adjustWordFontSize();
+                endGame(); // End the game early
+            }
+        }
+
+        /**
+         * --- NEW: Dynamically adjust font size to fit container ---
+         */
+        function adjustWordFontSize() {
+            const container = $wordContainer;
+            const wordEl = $wordDisplay;
+            
+            // Reset to a large font size
+            wordEl.style.fontSize = '8vw'; // Start a bit smaller than 10vw
+            
+            let currentFontSize = 8;
+            
+            // Check for overflow. Container height - header height (approx 80px)
+            const availableHeight = container.clientHeight - 80;
+            const availableWidth = container.clientWidth - 40; // 2.5rem padding (p-10)
+            
+            while ((wordEl.scrollHeight > availableHeight || wordEl.scrollWidth > availableWidth) && currentFontSize > 1) {
+                currentFontSize -= 0.5;
+                wordEl.style.fontSize = `${currentFontSize}vw`;
+            }
+        }
+
+        /**
+         * --- UPGRADED: Handles the "Correct" action ---
+         */
+        function handleCorrect() {
+            if (timeRemaining <= 0) return;
+            
+            const word = $wordDisplay.textContent;
+            if (word && word !== "DECK EMPTY!") {
+                correctWords.push(word);
+                updateSeenWords(word); // Save progress
+                flashFeedback('green');
+                playSound('correct'); // <-- Play sound
+                nextWord();
+            }
+        }
+
+        /**
+         * --- UPGRADED: Handles the "Skip" action ---
+         */
+        function handleSkip() {
+            if (timeRemaining <= 0) return;
+            
+            const word = $wordDisplay.textContent;
+            if (word && word !== "DECK EMPTY!") {
+                skippedWords.push(word);
+                flashFeedback('red');
+                playSound('skip'); // <-- Play sound
+                nextWord();
+            }
+        }
+        
+        /**
+         * Flashes the screen green or red for feedback
+         * @param {'green' | 'red'} color
+         */
+        function flashFeedback(color) {
+            const colorClass = color === 'green' ? 'bg-green-500/70' : 'bg-red-500/70';
+            $feedbackOverlay.classList.add(colorClass, 'opacity-100');
+            
+            setTimeout(() => {
+                $feedbackOverlay.classList.remove(colorClass, 'opacity-100');
+            }, 150); // Flash duration
+        }
+        
+        /**
+         * Formats time in seconds to MM:SS
+         */
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+        
+        /**
+         * Updates the game timer display
+         */
+        function updateGameTimerDisplay() {
+            $gameTimerValue.textContent = formatTime(timeRemaining);
+            // --- NEW: Play tick sound on last 5 seconds ---
+            if (timeRemaining > 0 && timeRemaining <= 5) {
+                playSound('timerTick');
+            }
+        }
+        
+        /**
+         * Utility to shuffle an array (Fisher-Yates)
+         */
+        function shuffleArray(array) {
+            let newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        // -------------------------------------------------
+        // Data & API Logic (ALL UPGRADED)
+        // -------------------------------------------------
+
+        /**
+         * --- REPLACED: Calls the Gemini API with correct schema & retry ---
+         */
+        async function callGeminiAPI(category, difficulty, count, existingWords = []) {
+            const apiKey = ""; // Provided by environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `You are a 'Heads Up' game content generator. You provide a list of words or phrases for a given category and difficulty. You MUST only respond with a JSON object. Do not include any other text, greetings, or markdown formatting. Do NOT repeat any words from this list: ${existingWords.slice(0, 50).join(', ')}`;
+            
+            let userPrompt = `Give me a list of ${count} items for a 'Heads Up' game.
+            - Category: "${category}"
+            - Difficulty: "${difficulty}"
+            
+            Example items for "Animals" (Easy): Dog, Cat, Fish
+            Example items for "Movies" (Hard): The Shawshank Redemption, Pulp Fiction
+            Example items for "Random Words" (Easy): Spoon, Candle, Book
+            Example items for "Random Words" (Medium): Thermos, Grinder, Stapler
+            Example items for "Random Words" (Hard): Defibrillator, Seismograph, Graphene
+            
+            Provide only the JSON object.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "words": {
+                                type: "ARRAY",
+                                items: { "type": "STRING" }
+                            }
+                        }
+                    }
+                }
+            };
+            
+            // --- API Call with Retry Logic ---
+            let response;
+            for (let i = 0; i < 3; i++) { // Retry up to 3 times
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        break; // Success
+                    }
+                    console.warn(`API call failed with status ${response.status}. Retrying... (${i + 1}/3)`);
+                } catch (error) {
+                    console.warn(`API call failed with error: ${error.message}. Retrying... (${i + 1}/3)`);
+                }
+                await new Promise(res => setTimeout(res, 1000 * (i + 1))); // Exponential backoff
+            }
+            
+            if (!response || !response.ok) {
+                console.error("API call failed after 3 retries.", response);
+                throw new Error("Failed to fetch words from AI.");
+            }
+
+            const result = await response.json();
+            
+            try {
+                const jsonText = result.candidates[0].content.parts[0].text;
+                return JSON.parse(jsonText); // This should be our {words: [...]} object
+            } catch (e) {
+                console.error("Failed to parse AI JSON response:", e, result);
+                throw new Error("AI returned invalid data.");
+            }
+        }
+
+        /**
+         * --- NEW: Add a correctly guessed word to the user's private "seenWords" list ---
+         */
+        async function updateSeenWords(word) {
+            const deckId = `${currentSettings.category}_${currentSettings.difficulty}`.toLowerCase();
+            const userDeckRef = doc(db, `artifacts/${appId}/users/${userId}/userDecks`, deckId);
+            
+            try {
+                await updateDoc(userDeckRef, {
+                    seenWords: arrayUnion(word)
+                });
+            } catch (error) {
+                console.error("Failed to update seenWords:", error);
+                // Non-critical, just means they might see the word again
+            }
+        }
+        
+        /**
+         * --- REPLACED: Get the word deck for the user (Private Deck Logic) ---
+         */
+        async function getWordDeck(deckId) {
+            console.log(`Getting deck: ${deckId} for user: ${userId}`);
+            
+            const userDeckRef = doc(db, `artifacts/${appId}/users/${userId}/userDecks`, deckId);
+            const userDeckSnap = await getDoc(userDeckRef);
+
+            let userDeckData;
+
+            if (!userDeckSnap.exists()) {
+                console.log("No private deck. Seeding from master bank...");
+                $loadingStatus.textContent = "Creating your personal deck... 📇";
+                userDeckData = await seedUserDeck(deckId, userDeckRef);
+                if (!userDeckData) {
+                    throw new Error("Failed to seed new user deck.");
+                }
+            } else {
+                userDeckData = userDeckSnap.data();
+            }
+
+            const { allWords = [], seenWords = [] } = userDeckData;
+            const seenSet = new Set(seenWords);
+            let availableWords = allWords.filter(word => !seenSet.has(word));
+
+            console.log(`Deck status: ${allWords.length} total, ${seenWords.length} seen, ${availableWords.length} available.`);
+
+            // --- FIX: Use dynamic 1:10 ratio for threshold ---
+            const dynamicLowWordThreshold = Math.floor(allWords.length / 10);
+
+            // Handle deck exhaustion and low-word states
+            if (availableWords.length === 0) {
+                console.warn("User has seen all words. Refreshing deck...");
+                $loadingStatus.textContent = "Deck complete! Fetching new words... ♻️";
+                
+                const updatedDeckData = await refreshWordCache(deckId, userDeckRef);
+                
+                // Recalculate available words from the newly refreshed deck
+                const { allWords: newAll, seenWords: newSeen } = updatedDeckData;
+                const newSeenSet = new Set(newSeen);
+                availableWords = newAll.filter(word => !newSeenSet.has(word));
+                
+                if (availableWords.length === 0) {
+                    throw new Error("Deck is empty and AI refresh failed.");
+                }
+            }
+            // Proactive *background* refresh (no await)
+            else if (availableWords.length > 0 && availableWords.length < dynamicLowWordThreshold) {
+                console.log(`Word deck is low (${availableWords.length} available, threshold is ${dynamicLowWordThreshold}). Triggering background refresh...`);
+                // We don't await this. Let the game start, refresh in background.
+                refreshWordCache(deckId, userDeckRef).catch(err => {
+                    console.error("Background refresh failed:", err);
+                    // Non-critical, the game is already running.
+                });
+            }
+            
+            return availableWords;
+        }
+
+        /**
+         * --- NEW: First-time play: Copy master bank to a new private user deck. ---
+         */
+        async function seedUserDeck(deckId, userDeckRef) {
+            const masterDeckRef = doc(db, `artifacts/${appId}/public/data/decks`, deckId);
+            let masterDeckSnap = await getDoc(masterDeckRef);
+            let masterDeckData = masterDeckSnap.data();
+
+            // If master bank doesn't exist (first user ever), create it
+            if (!masterDeckSnap.exists() || !masterDeckData || !masterDeckData.allWords || masterDeckData.allWords.length === 0) {
+                console.log("Master bank is empty. Seeding from AI...");
+                $loadingStatus.textContent = `Creating first deck for ${currentSettings.category}...`;
+                // This is a blocking call. User must wait.
+                masterDeckData = await refreshWordCache(deckId, userDeckRef, masterDeckRef);
+            }
+
+            // Create the new private user deck
+            const newPrivateDeck = {
+                allWords: masterDeckData.allWords,
+                seenWords: []
+            };
+            
+            await setDoc(userDeckRef, newPrivateDeck);
+            console.log("Private deck seeded.");
+            return newPrivateDeck;
+        }
+
+
+        /**
+         * --- REPLACED: Refreshes cache by fetching 2000 words ---
+         */
+        async function refreshWordCache(deckId, userDeckRef, masterDeckRef) {
+            if (!masterDeckRef) {
+                masterDeckRef = doc(db, `artifacts/${appId}/public/data/decks`, deckId);
+            }
+
+            console.log(`Refreshing cache for ${deckId}...`);
+            // This function is now blocking, so show the loading screen
+            $loadingStatus.textContent = `Topping up your '${currentSettings.category}' deck...`;
+            $loadingIndicator.classList.remove('hidden');
+
+            try {
+                // Fetch existing decks in parallel
+                const [userDeckSnap, masterDeckSnap] = await Promise.all([
+                    getDoc(userDeckRef),
+                    getDoc(masterDeckRef)
+                ]);
+                
+                const userDeckData = userDeckSnap.data() || { allWords: [], seenWords: [] };
+                const masterDeckData = masterDeckSnap.data() || { allWords: [] };
+                
+                let existingWords = new Set([...masterDeckData.allWords, ...userDeckData.allWords]);
+                let allNewWords = [];
+
+                // Make multiple API calls to get a large batch
+                const fetchPromises = [];
+                for (let i = 0; i < REFRESH_BATCH_COUNT; i++) {
+                    fetchPromises.push(
+                        callGeminiAPI(currentSettings.category, currentSettings.difficulty, 100, Array.from(existingWords))
+                    );
+                }
+                
+                const wordBatches = await Promise.all(fetchPromises);
+                
+                // Flatten results and filter for uniqueness
+                for (const batch of wordBatches) {
+                    if(batch && batch.words) {
+                        for (const word of batch.words) {
+                            const trimmedWord = word.trim();
+                            if(trimmedWord.length > 0 && !existingWords.has(trimmedWord)) {
+                                allNewWords.push(trimmedWord);
+                                existingWords.add(trimmedWord);
+                            }
+                        }
+                    }
+                }
+
+                if (allNewWords.length === 0) {
+                    console.warn("AI returned no new words.");
+                    // If the deck is still empty, this is a critical failure
+                    if (userDeckData.allWords.length === 0) {
+                        throw new Error("AI failed and no words are in the cache.");
+                    }
+                    // Otherwise, we just failed to top-up, which is ok.
+                    return userDeckData; 
+                }
+                
+                console.log(`Fetched ${allNewWords.length} new unique words.`);
+
+                // Use a transaction to update both decks
+                const newDeckData = await runTransaction(db, async (transaction) => {
+                    // 1. Update Master Deck
+                    transaction.set(masterDeckRef, {
+                        allWords: arrayUnion(...allNewWords)
+                    }, { merge: true });
+
+                    // 2. Update User Deck
+                    // We add the new words and RESET their seen list
+                    const updatedUserDeck = {
+                        allWords: [...userDeckData.allWords, ...allNewWords],
+                        seenWords: [] // Reset progress
+                    };
+                    transaction.set(userDeckRef, updatedUserDeck); // Overwrite, not merge
+                    
+                    return updatedUserDeck;
+                });
+                
+                console.log("Cache refresh complete. User's seen list was reset.");
+                return newDeckData;
+
+            } catch (error) {
+                console.error("CRITICAL: Failed to refresh word cache:", error);
+                throw new Error(`Could not load word deck: ${error.message}`);
+            } finally {
+                // Ensure we always hide the loading indicator
+                $loadingIndicator.classList.add('hidden');
+            }
+        }
+        
+        // --- NEW: Modal Show/Hide Logic (FIXED) ---
+        function showWordModal(title, words) {
+            $modalTitle.textContent = `${title} (${words.length})`;
+            
+            if (words.length === 0) {
+                $modalList.innerHTML = `<p class="text-gray-400 p-4">No words to show.</p>`;
+            } else {
+                $modalList.innerHTML = words
+                    .map(word => `<div class="results-list-item">${word}</div>`)
+                    .join('');
+            }
+            
+            $wordModal.classList.add('is-open');
+        }
+
+        function hideWordModal() {
+            $wordModal.classList.remove('is-open');
+        }
+
+        // -------------------------------------------------
+        // Event Listeners
+        // -------------------------------------------------
+        
+        // --- Setup Screen ---
+        $startButton.addEventListener('click', handleStartGame);
+        
+        // --- Results Screen ---
+        $playAgainButton.addEventListener('click', handleStartGame); // Re-uses last settings
+        $changeSettingsButton.addEventListener('click', () => switchScreen('setup'));
+        
+        // --- NEW: Modal Listeners ---
+        $viewCorrectBtn.addEventListener('click', () => showWordModal('Correct', correctWords));
+        $viewSkippedBtn.addEventListener('click', () => showWordModal('Skipped', skippedWords));
+        $modalBackdrop.addEventListener('click', hideWordModal);
+        $modalCloseBtn.addEventListener('click', hideWordModal);
+        
+        // --- Game Screen (Mouse/Touch) ---
+        // Using mousedown for faster response than click
+        $skipArea.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            handleSkip();
+        });
+        
+        $correctArea.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            handleCorrect();
+        });
+        
+        // --- Global Keyboard Controls ---
+        window.addEventListener('keydown', (e) => {
+            // Only listen for keys if the game screen is active
+            if ($gameScreen.classList.contains('hidden')) {
+                return;
+            }
+            
+            if (e.key === 'ArrowLeft') {
+                handleSkip();
+            } else if (e.key === 'ArrowRight') {
+                handleCorrect();
+            }
+        });
+        
+        // -------------------------------------------------
+        // Initialize the App
+        // -------------------------------------------------
+        main();
+
+    </script>
+</body>
+</html>
+

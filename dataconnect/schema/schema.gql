@@ -1,0 +1,29 @@
+type Category @table {
+  name: String!
+  description: String
+}
+
+type WordPhrase @table {
+  text: String!
+  category: Category
+}
+
+type GameSession @table {
+  startTime: Timestamp!
+  endTime: Timestamp
+  category: Category
+}
+
+type Round @table {
+  roundNumber: Int!
+  score: Int!
+  gameSession: GameSession
+  category: Category
+}
+
+type Guess @table {
+  isCorrect: Boolean!
+  guessTime: Timestamp!
+  round: Round
+  wordPhrase: WordPhrase
+}
