@@ -6,6 +6,8 @@ import {
     getAuth, 
     GoogleAuthProvider,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     onAuthStateChanged,
     // We are not using anonymous or custom tokens for deployment
     // signInAnonymously, 
@@ -212,6 +214,16 @@ async function main() {
     // Set persistence to local so they stay logged in
     await setPersistence(auth, browserLocalPersistence);
 
+    // ✅ Handle result of mobile redirect login
+    try {
+        const redirectResult = await getRedirectResult(auth);
+        if (redirectResult && redirectResult.user) {
+            console.log("Mobile redirect login success:", redirectResult.user.uid);
+        }
+    } catch (err) {
+        console.error("Redirect login failed:", err);
+    }
+
     // Listen for auth state changes
     onAuthStateChanged(auth, (user) => {
         if (user) {
@@ -235,8 +247,17 @@ async function main() {
  */
 async function signInWithGoogle() {
     try {
-        await signInWithPopup(auth, googleProvider);
-        // The onAuthStateChanged listener will handle the UI update
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+        if (isMobile) {
+            // ✅ Stable mobile flow using redirect
+            console.log("Using signInWithRedirect for mobile login");
+            await signInWithRedirect(auth, googleProvider);
+        } else {
+            // ✅ Popup flow for desktop
+            console.log("Using signInWithPopup for desktop login");
+            await signInWithPopup(auth, googleProvider);
+        }
     } catch (error) {
         console.error("Google Sign-In failed:", error);
         alert("Sign-in failed. Please try again.");
