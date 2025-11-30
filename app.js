@@ -6,8 +6,6 @@ import {
     getAuth, 
     GoogleAuthProvider,
     signInWithPopup,
-    signInWithRedirect,
-    getRedirectResult,
     onAuthStateChanged,
     setPersistence,
     browserLocalPersistence 
@@ -42,7 +40,7 @@ function createDebugBox() {
     box.style.overflowY = 'scroll';
     box.style.zIndex = '9999';
     box.style.padding = '10px';
-    box.style.pointerEvents = 'none'; // Let clicks pass through
+    box.style.pointerEvents = 'none'; 
     document.body.appendChild(box);
     return box;
 }
@@ -50,7 +48,7 @@ function createDebugBox() {
 const debugBox = createDebugBox();
 
 function logToScreen(msg) {
-    console.log(msg); // Keep normal console working
+    console.log(msg); 
     const line = document.createElement('div');
     line.textContent = `> ${msg}`;
     line.style.borderBottom = '1px solid #333';
@@ -119,9 +117,6 @@ const firebaseConfig = {
 
 let app, auth, db, googleProvider, analytics;
 
-// -------------------------------------------------
-// Initialization
-// -------------------------------------------------
 try {
     logToScreen("Initializing Firebase...");
     app = initializeApp(firebaseConfig);
@@ -158,7 +153,7 @@ let currentSettings = { category: 'Movies', difficulty: 'Easy', time: 60 };
 const REFRESH_BATCH_COUNT = 20; 
 
 // -------------------------------------------------
-// Auth Logic (Debugged)
+// Auth Logic (POPUP ONLY)
 // -------------------------------------------------
 
 async function main() {
@@ -167,25 +162,7 @@ async function main() {
         return;
     }
 
-    logToScreen("Checking redirect result...");
-    
-    // 1. Check Redirect Result FIRST
-    try {
-        const redirectResult = await getRedirectResult(auth);
-        if (redirectResult) {
-            logToScreen(`Redirect Success! User: ${redirectResult.user.uid}`);
-            // Force user set
-            userId = redirectResult.user.uid;
-            $startButton.disabled = false;
-            $startButton.textContent = "START GAME";
-        } else {
-            logToScreen("No redirect result found (null).");
-        }
-    } catch (err) {
-        errorToScreen(`Redirect Error: ${err.code} - ${err.message}`);
-    }
-
-    // 2. Set Persistence
+    // 1. Set Persistence
     try {
         await setPersistence(auth, browserLocalPersistence);
         logToScreen("Persistence set to LOCAL");
@@ -193,7 +170,7 @@ async function main() {
         errorToScreen("Persistence failed: " + e.message);
     }
 
-    // 3. Listener
+    // 2. Listener
     onAuthStateChanged(auth, (user) => {
         if (user) {
             userId = user.uid;
@@ -210,26 +187,26 @@ async function main() {
 }
 
 async function signInWithGoogle() {
-    logToScreen("Starting Sign In...");
+    logToScreen("Starting Sign In (Popup Mode)...");
     try {
-        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-        if (isMobile) {
-            logToScreen("Mobile detected. Redirecting...");
-            $startButton.disabled = true;
-            $startButton.textContent = "REDIRECTING...";
-            await signInWithRedirect(auth, googleProvider);
-        } else {
-            logToScreen("Desktop detected. Popping up...");
-            $startButton.disabled = true;
-            $startButton.textContent = "SIGNING IN...";
-            await signInWithPopup(auth, googleProvider);
-        }
+        $startButton.disabled = true;
+        $startButton.textContent = "POPUP OPENING...";
+        
+        // Always use Popup - it bypasses the storage partitioning issues on mobile
+        await signInWithPopup(auth, googleProvider);
+        
+        logToScreen("Popup Success!");
+        // onAuthStateChanged will handle the rest
     } catch (error) {
-        errorToScreen(`Sign In Failed: ${error.code} - ${error.message}`);
+        // Handle popup closed by user specifically
+        if (error.code === 'auth/popup-closed-by-user') {
+            logToScreen("User closed the popup.");
+        } else {
+            errorToScreen(`Sign In Failed: ${error.code} - ${error.message}`);
+            alert(`Login Error: ${error.message}`);
+        }
         $startButton.disabled = false;
         $startButton.textContent = "SIGN IN WITH GOOGLE";
-        alert("Sign-in failed. Check debug log.");
     }
 }
 
