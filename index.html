@@ -78,27 +78,38 @@
 
 
         <div id="game-screen" class="hidden absolute inset-0 bg-gray-900 z-10">
-            <div class="flex h-full w-full">
-                <div id="skip-area" class="flex-1 bg-red-800/80 flex items-center justify-center">
-                    <span class="text-4xl font-black text-white opacity-50 -rotate-90">SKIP</span>
-                </div>
-                <div id="correct-area" class="flex-1 bg-green-800/80 flex items-center justify-center">
-                    <span class="text-4xl font-black text-white opacity-50 rotate-90">CORRECT</span>
-                </div>
-            </div>
-            
-            <div class="absolute inset-0 flex flex-col items-center justify-between p-4 pointer-events-none">
-                <div id="game-timer-display" class="flex items-center space-x-2 rounded-full bg-black/30 px-4 py-2 text-3xl font-bold text-white">
-                    <i class="ph-fill ph-timer text-cyan-300"></i>
-                    <span id="game-timer-value">01:00</span>
+            <div class="portrait:hidden landscape:flex h-full w-full relative">
+                <div class="flex h-full w-full">
+                    <div id="skip-area" class="flex-1 bg-red-800/80 flex items-center justify-center">
+                        <span class="text-4xl font-black text-white opacity-50 -rotate-90">SKIP</span>
+                    </div>
+                    <div id="correct-area" class="flex-1 bg-green-800/80 flex items-center justify-center">
+                        <span class="text-4xl font-black text-white opacity-50 rotate-90">CORRECT</span>
+                    </div>
                 </div>
                 
-                <div id="word-container" class="absolute inset-0 flex items-center justify-center pointer-events-none p-10" style="top: 10vh;"> <h1 id="word-display" class="text-6xl md:text-9xl font-black text-white text-center break-words">
-                    </h1>
+                <div class="absolute inset-0 flex flex-col items-center justify-between p-4 pointer-events-none">
+                    <div id="game-timer-display" class="flex items-center space-x-2 rounded-full bg-black/30 px-4 py-2 text-3xl font-bold text-white">
+                        <i class="ph-fill ph-timer text-cyan-300"></i>
+                        <span id="game-timer-value">01:00</span>
+                    </div>
+                    
+                    <div id="word-container" class="absolute inset-0 flex items-center justify-center pointer-events-none p-10" style="top: 10vh;"> 
+                        <h1 id="word-display" class="text-6xl md:text-9xl font-black text-white text-center break-words">
+                        </h1>
+                    </div>
                 </div>
+                
+                <div id="feedback-overlay" class="absolute inset-0 opacity-0 transition-opacity duration-300 pointer-events-none"></div>
             </div>
-            
-            <div id="feedback-overlay" class="absolute inset-0 opacity-0 transition-opacity duration-300 pointer-events-none"></div>
+
+            <div class="landscape:hidden portrait:flex h-full w-full flex-col items-center justify-center bg-gray-900 text-center p-10 space-y-6">
+                <div class="animate-bounce">
+                    <i class="ph-duotone ph-device-rotate text-8xl text-cyan-400"></i>
+                </div>
+                <h2 class="text-4xl font-bold text-white">Rotate to Play!</h2>
+                <p class="text-xl text-gray-400">Turn your phone sideways to start the game.</p>
+            </div>
         </div>
         
         <div id="results-screen" class="hidden absolute inset-0 bg-gradient-to-br from-indigo-900 to-gray-900 flex flex-col items-center justify-between p-6 z-30">
