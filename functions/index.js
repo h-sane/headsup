@@ -35,7 +35,36 @@ exports.getAiWords = onRequest(
 );
 
 /**
- * Calls Gemini 2.5 Flash API with correct roles and structure
+ * Helper to get specific rules for each category to prevent bad data
+ */
+function getCategoryInstruction(category) {
+    switch (category) {
+        case 'Movies':
+            return "Provide specific, famous Movie Titles only. Do NOT provide genres, actors, or generic terms like 'Cinema' or 'Screen'. Example: 'Titanic', 'The Matrix', 'Inception'.";
+        
+        case 'Celebrities':
+            // UPDATED STRICTER RULE:
+            return "Provide specific full names of famous real-life people only (Actors, Singers, Athletes, Politicians). Do NOT provide generic professions like 'Actor', 'Singer', 'Athlete' or 'Player'. Example: 'Taylor Swift', 'Cristiano Ronaldo', 'Barack Obama'.";
+        
+        case 'Animals':
+            return "Provide specific animal names (e.g. 'Lion', 'Eagle', 'Shark'). Do NOT provide classes like 'Mammal', 'Bird', or 'Fish'.";
+        
+        case 'Science':
+            return "Provide specific scientific terms, elements, or concepts (e.g. 'Gravity', 'Photosynthesis', 'Oxygen'). Do NOT provide school subjects like 'Biology' or 'Physics'.";
+        
+        case 'History':
+            return "Provide specific historical events or famous historical figures (e.g. 'World War II', 'Julius Caesar'). Do NOT provide eras like 'Ancient' or 'Modern'.";
+        
+        case 'Random Words':
+             return "Provide random, distinct nouns or objects. Avoid simple colors or numbers.";
+
+        default:
+            return "Provide specific items related to this category.";
+    }
+}
+
+/**
+ * Calls Gemini API
  */
 async function callGeminiAPI(category, difficulty, count, existingWords = []) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -43,29 +72,36 @@ async function callGeminiAPI(category, difficulty, count, existingWords = []) {
     throw new Error("GEMINI_API_KEY not set in environment.");
   }
 
-  // Prevent overloading Gemini — limit to 50 words per request
   const safeCount = Math.min(count, 50);
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  // Switched to 1.5-flash for better stability with instructions
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   
-  const systemPrompt = `You are a 'Heads Up' word generator. Respond ONLY with valid JSON (no markdown, no explanations). Do NOT repeat any of these words: ${existingWords.slice(0, 50).join(", ")}.`;
-  const userPrompt = `Generate ${safeCount} ${difficulty}-level words for the category '${category}' suitable for a 'Heads Up' guessing game. Respond ONLY as JSON like {"words": ["word1", "word2", ...]}.`;
+  const categoryRule = getCategoryInstruction(category);
+
+  // STRICT System Prompt
+  const systemPrompt = `You are a 'Heads Up' game word generator. 
+  Respond ONLY with valid JSON.
+  CATEGORY RULE: ${categoryRule}
+  DIFFICULTY: ${difficulty}.
+  Do NOT repeat any of these words: ${existingWords.slice(0, 50).join(", ")}.`;
+
+  const userPrompt = `Generate ${safeCount} words for the category '${category}'. Respond ONLY as JSON like {"words": ["word1", "word2", ...]}.`;
 
   const payload = {
     contents: [
-      { role: "user", parts: [{ text: userPrompt }] },
-      { role: "model", parts: [{ text: systemPrompt }] }
+      { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }
     ],
     generationConfig: {
       temperature: 0.7,
-      maxOutputTokens: 2048, // Increased token limit
+      maxOutputTokens: 2048,
       responseMimeType: "application/json"
     }
   };
 
-  // Attempt up to 3 retries for transient errors
+  // Retry Logic
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      logger.info(`Calling Gemini (attempt ${attempt}) model=models/gemini-2.5-flash`);
+      logger.info(`Calling Gemini (attempt ${attempt})`);
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -73,8 +109,7 @@ async function callGeminiAPI(category, difficulty, count, existingWords = []) {
       });
 
       const text = await response.text();
-      logger.info("🔍 RAW GEMINI RESPONSE:", text);
-
+      
       if (!response.ok) {
         logger.error(`Generative API returned non-2xx: ${response.status}`, text);
         throw new Error(`Generative API returned ${response.status}`);
@@ -84,7 +119,7 @@ async function callGeminiAPI(category, difficulty, count, existingWords = []) {
       const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!content) throw new Error("Invalid Gemini response format");
 
-      // 🧩 Clean any ```json or ``` wrapper before parsing
+      // Clean JSON
       const cleaned = content
         .replace(/^```json\s*/i, '')
         .replace(/^```/, '')
@@ -103,7 +138,7 @@ async function callGeminiAPI(category, difficulty, count, existingWords = []) {
     } catch (err) {
       logger.error(`Error calling Gemini API (attempt ${attempt}):`, err);
       if (attempt === 3) throw err;
-      await new Promise(r => setTimeout(r, 1000 * attempt)); // exponential backoff
+      await new Promise(r => setTimeout(r, 1000 * attempt)); 
     }
   }
 }
