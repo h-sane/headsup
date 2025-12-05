@@ -70,3 +70,8 @@ node_modules/
 
 # Firebase environment files
 functions/.env
+
+# API Keys - prevent committing API keys
+**/apiKey*
+**/*apiKey*
+**/AIzaSy*

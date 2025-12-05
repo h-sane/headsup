@@ -73,7 +73,7 @@ const $modalCloseBtn = document.getElementById('modal-close-btn');
 const appId = "heads-up-v1"; 
 
 const firebaseConfig = {
-    apiKey: "AIzaSyDDseQLasErIFRwzkulqIF4TRe7Ox_IXmY",
+    apiKey: "AIzaSyDH58z4KHW2bPcmaMX_3e-DUZtCoPIG8r0",
     authDomain: "headsup-cab4e.firebaseapp.com",
     projectId: "headsup-cab4e",
     storageBucket: "headsup-cab4e.firebasestorage.app",
