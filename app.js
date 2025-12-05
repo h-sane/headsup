@@ -73,13 +73,13 @@ const $modalCloseBtn = document.getElementById('modal-close-btn');
 const appId = "heads-up-v1"; 
 
 const firebaseConfig = {
-    apiKey: "AIzaSyDH58z4KHW2bPcmaMX_3e-DUZtCoPIG8r0",
-    authDomain: "headsup-cab4e.firebaseapp.com",
-    projectId: "headsup-cab4e",
-    storageBucket: "headsup-cab4e.firebasestorage.app",
-    messagingSenderId: "409660603005",
-    appId: "1:409660603005:web:d4915654188dfbd9ee8f14",
-    measurementId: "G-VZWVWER21S"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
